@@ -36,13 +36,15 @@ function processData(data) {
   for (const item of data) {
     const raw = typeof item === "string" ? item.trim() : String(item);
 
-    if (typeof item === "string") {
-      letterBag.push(...extractLetters(raw));
-    }
+    letterBag.push(...extractLetters(raw));
 
     if (isIntegerLike(raw)) {
       const n = parseInt(raw, 10);
-      (Math.abs(n) % 2 === 0 ? even_numbers : odd_numbers).push(raw);
+      if (Math.abs(n) % 2 === 0) {
+        even_numbers.push(String(raw));
+      } else {
+        odd_numbers.push(String(raw));
+      }
       sum += n;
     } else if (isAlphaOnly(raw)) {
       alphabets.push(raw.toUpperCase());
@@ -59,7 +61,7 @@ function processData(data) {
     alphabets,
     special_characters,
     sum: String(sum),
-    concat_string
+    concat_string,
   };
 }
 

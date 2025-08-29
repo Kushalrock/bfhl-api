@@ -4,8 +4,8 @@ const helmet = require("helmet");
 const cors = require("cors");
 const compression = require("compression");
 const rateLimit = require("express-rate-limit");
-const pinoHttp = require("pino-http");
 const { buildUserId, processData } = require("./logic");
+const { consoleLogger, accessLogger, errorLogger } = require("./logger");
 
 const app = express();
 
@@ -13,20 +13,49 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(compression());
+
 app.use(
-  rateLimit({ windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false })
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
 );
-app.use(pinoHttp());
+
+app.use((req, _res, next) => {
+  req.log = consoleLogger;
+  next();
+});
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    const entry = {
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      duration_ms: duration,
+      body: req.body,
+      ip: req.ip,
+    };
+    consoleLogger.info("Request processed", entry);
+    accessLogger.info(entry);
+  });
+  next();
+});
 
 app.get("/", (_req, res) => res.status(200).json({ status: "ok" }));
 
-app.post("/bfhl", (req, res) => {
+app.post("/bfhl", (req, res, next) => {
   try {
     const { data } = req.body || {};
     if (!Array.isArray(data)) {
       return res.status(400).json({
         is_success: false,
-        error: "Invalid payload: 'data' must be an array."
+        error: "Invalid payload: 'data' must be an array.",
       });
     }
 
@@ -47,20 +76,51 @@ app.post("/bfhl", (req, res) => {
       alphabets: computed.alphabets,
       special_characters: computed.special_characters,
       sum: computed.sum,
-      concat_string: computed.concat_string
+      concat_string: computed.concat_string,
     };
 
     return res.status(200).json(payload);
   } catch (err) {
-    req.log?.error(err);
-    return res.status(500).json({
-      is_success: false,
-      error: "Internal server error"
-    });
+    return next(err);
   }
+});
+
+app.use((req, res) => {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.originalUrl,
+    status: 404,
+    message: "Only POST route /bfhl is available",
+  };
+  consoleLogger.warn("Unhandled route", entry);
+  accessLogger.info(entry);
+
+  return res.status(404).json({
+    is_success: false,
+    message: "Only POST route /bfhl is available",
+  });
+});
+
+app.use((err, req, res, _next) => {
+  const logObj = {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    body: req.body,
+    timestamp: new Date().toISOString(),
+  };
+
+  consoleLogger.error("Unhandled error", logObj);
+  errorLogger.error(logObj);
+
+  return res.status(500).json({
+    is_success: false,
+    error: "Internal server error",
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`BFHL API listening on port ${PORT}`);
+  consoleLogger.info(`🚀 BFHL API listening on port ${PORT}`);
 });

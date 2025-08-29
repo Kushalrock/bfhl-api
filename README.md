@@ -1,45 +1,91 @@
-# BFHL API – Bajaj Finserv Test Assessment
+# 📦 BFHL API – Bajaj Finserv Test Assessment
 
-This repository contains a **test assessment project for Bajaj Finserv**.  
-It implements a REST API in **Node.js + Express**, following the given requirements.
+A **Node.js + Express** REST API built for the **Bajaj Finserv Hiring Assessment**.
+Implements the **/bfhl** endpoint with advanced request processing, structured logging, and production-ready middleware.
 
 ---
 
 ## 🚀 Features
-- REST API with **POST /bfhl**
-- Input: JSON array of strings
-- Output:
-  - `is_success` (status flag)
-  - `user_id` (`{full_name_ddmmyyyy}`, lowercase, underscores)
-  - `email` (from environment variables)
-  - `roll_number` (from environment variables)
-  - Odd numbers (strings)
-  - Even numbers (strings)
-  - Alphabets (uppercased)
-  - Special characters
-  - Sum of numeric values (string)
-  - Concatenated alphabet characters (reversed, alternating caps)
-- Error handling and validation included
-- Middleware for security & scalability:
-  - `helmet`, `cors`, `compression`, `express-rate-limit`, `pino-http`
+
+* **Core API**
+
+  * `POST /bfhl` → Process an array of strings
+  * `GET /` → Health check
+  * 404 catch-all → `"Only POST route /bfhl is available"`
+* **Data Processing**
+
+  * Odd & Even numbers (as strings)
+  * Alphabets (converted to uppercase)
+  * Special characters (non-alphanumeric, alphanum mixes, floats, etc.)
+  * Numeric sum (string)
+  * Concatenated string:
+
+    * Collect all alphabetic characters
+    * Reverse order
+    * Alternate casing (Upper / lower)
+  * `user_id` generated as `{full_name_ddmmyyyy}` (lowercase, underscores)
+* **Robust Middleware**
+
+  * `helmet` → Secure HTTP headers
+  * `cors` → Cross-origin requests
+  * `compression` → Gzip responses
+  * `express-rate-limit` → Prevent abuse (120 req/min)
+* **Logging**
+
+  * **Pretty console logs** (colored, human-friendly)
+  * **Access logs** (`logs/access-YYYY-MM-DD.log`)
+  * **Error logs** (`logs/error-YYYY-MM-DD.log`)
+  * Logs rotate daily, JSON structured for analysis
+* **Error Handling**
+
+  * Centralized error middleware
+  * Logs both to console & files
+  * Safe API error responses (`500 Internal Server Error`)
+* **Deployment-ready**
+
+  * Config via `.env`
+  * Works with **Railway**, **Render**, **Vercel**, or any Node host
 
 ---
 
 ## 🛠 Tech Stack
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Middleware**: Helmet, CORS, Compression, Rate limiting, Pino
-- **Deployment Options**: Railway / Render / Vercel
+
+* **Runtime**: Node.js
+* **Framework**: Express.js
+* **Security Middleware**: Helmet, CORS, Compression, Rate-limit
+* **Logging**: Winston + Daily Rotate
+* **Dev Tools**: Nodemon
+* **Deployment**: Railway / Render / Vercel
 
 ---
 
-## 📦 Setup
+## 📂 Folder Structure
 
-### 1. Clone the repository
+```
+bfhl-api/
+├─ src/
+│  ├─ index.js       # Express server & routes
+│  ├─ logic.js       # Data processing functions
+│  └─ logger.js      # Winston logger setup (console + file rotation)
+│
+├─ logs/             # Auto-created: access + error logs
+│
+├─ .env.example      # Example environment config
+├─ package.json
+├─ .gitignore
+└─ README.md
+```
+
+---
+
+## ⚙️ Setup & Installation
+
+### 1. Clone repository
+
 ```bash
 git clone https://github.com/<your-username>/bfhl-api.git
 cd bfhl-api
-````
+```
 
 ### 2. Install dependencies
 
@@ -47,28 +93,18 @@ cd bfhl-api
 npm install
 ```
 
-### 3. Create `.env` file
+### 3. Configure environment
 
-Copy the provided `.env.example` file and fill in your details:
-
-```bash
-cp .env.example .env
-```
-
-#### `.env.example`
+Copy `.env.example` → `.env` and update with your details:
 
 ```env
-# Server
 PORT=3000
-
-# User info
 FULL_NAME=John Doe
 DOB_DDMMYYYY=17091999
 EMAIL=john@xyz.com
 ROLL_NUMBER=ABCD123
+LOG_LEVEL=debug
 ```
-
-Update `.env` with your actual details before running.
 
 ### 4. Run locally
 
@@ -76,18 +112,28 @@ Update `.env` with your actual details before running.
 npm run dev
 ```
 
-API will be available at:
-`http://localhost:3000/bfhl`
+Server will be available at →
+`http://localhost:3000`
 
 ---
 
 ## 📡 API Usage
 
-### Endpoint
+### 🔹 Health Check
 
-`POST /bfhl`
+**GET /**
 
-### Request Example
+```json
+{ "status": "ok" }
+```
+
+---
+
+### 🔹 Process Data
+
+**POST /bfhl**
+
+#### Request
 
 ```json
 {
@@ -95,7 +141,7 @@ API will be available at:
 }
 ```
 
-### Response Example
+#### Response
 
 ```json
 {
@@ -114,27 +160,79 @@ API will be available at:
 
 ---
 
-## 📤 Deployment
+### 🔹 Invalid Payload
 
-* Push this repo to GitHub
-* Deploy to your preferred host:
+```bash
+curl -X POST http://localhost:3000/bfhl \
+  -H "Content-Type: application/json" \
+  -d '{"data": "not-an-array"}'
+```
 
-  * [Railway](https://railway.app)
-  * [Render](https://render.com)
-  * [Vercel](https://vercel.com)
-* Configure the environment variables from `.env`
+Response:
+
+```json
+{
+  "is_success": false,
+  "error": "Invalid payload: 'data' must be an array."
+}
+```
+
+---
+
+### 🔹 Unhandled Route
+
+```bash
+curl http://localhost:3000/anything
+```
+
+Response:
+
+```json
+{
+  "is_success": false,
+  "message": "Only POST route /bfhl is available"
+}
+```
+
+---
+
+## 📝 Logging
+
+* Console → Pretty, colorized logs for dev
+* `logs/access-YYYY-MM-DD.log` → Every request (JSON structured)
+* `logs/error-YYYY-MM-DD.log` → All errors & exceptions (JSON structured)
+
+Example **console log**:
+
+```
+2025-08-29 12:34:56 info: Request processed {"method":"POST","url":"/bfhl","status":200,"duration_ms":12}
+```
+
+Example **error log entry**:
+
+```json
+{
+  "message": "Unhandled error",
+  "stack": "...",
+  "path": "/bfhl",
+  "body": { "data": null },
+  "timestamp": "2025-08-29T12:34:56.123Z"
+}
+```
+
+---
+
+## 🚀 Deployment
+
+1. Push this repo to GitHub
+2. Deploy to your choice:
+
+   * [Railway](https://railway.app)
+   * [Render](https://render.com)
+   * [Vercel](https://vercel.com)
+3. Configure `.env` variables in host dashboard
 
 Example production endpoint:
 `https://<your-app>.railway.app/bfhl`
 
 ---
-
-## 📜 License
-
-This project is licensed under a **custom proprietary license**.
-Usage is strictly limited to **Bajaj Finserv Limited, its employees, affiliates, and contractors**,
-who are granted full rights to use, copy, modify, and commercialize this software.
-
-See [LICENSE](./LICENSE) for details.
-
-```
